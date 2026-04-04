@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="UTOPICO">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<title>UTOPICO — My Card</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,300;0,400;0,500;0,700;1,300&family=Archivo+Narrow:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --black: #000000;
+  --white: #ffffff;
+  --gray-100: #f5f5f5;
+  --gray-200: #e8e8e8;
+  --gray-300: #d0d0d0;
+  --gray-400: #a0a0a0;
+  --gray-500: #707070;
+  --gray-600: #484848;
+  --gray-800: #1a1a1a;
+  --gray-900: #0d0d0d;
+}
+html, body { min-height: 100%; font-family: 'Archivo', sans-serif; background: var(--black); color: var(--white); -webkit-font-smoothing: antialiased; }
+.screen { display: none; min-height: 100vh; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* ── LANDING ── */
+#s-landing {
+  align-items: center; justify-content: center;
+  padding: 3rem 2rem; text-align: center;
+  background: var(--black); position: relative; overflow: hidden;
+}
+#s-landing::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.03) 39px, rgba(255,255,255,0.03) 40px),
+              repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.03) 39px, rgba(255,255,255,0.03) 40px);
+  pointer-events: none;
+}
+.brand-lockup { margin-bottom: 3rem; position: relative; }
+.brand-name {
+  font-family: 'Archivo Narrow', sans-serif;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 6px; text-transform: uppercase;
+  color: var(--white); margin-bottom: 6px;
+}
+.brand-line { width: 40px; height: 1px; background: var(--gray-600); margin: 0 auto 6px; }
+.brand-slogan {
+  font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--gray-500); font-weight: 300;
+}
+.big-icon {
+  font-size: 52px; margin-bottom: 2rem;
+  display: block; filter: grayscale(1);
+}
+h1.hero {
+  font-family: 'Archivo Narrow', sans-serif;
+  font-size: clamp(28px, 9vw, 42px);
+  font-weight: 700; line-height: 1.1;
+  text-transform: uppercase; letter-spacing: -0.5px;
+  margin-bottom: 1rem; color: var(--white);
+}
+h1.hero em { font-style: italic; font-weight: 300; color: var(--gray-400); }
+.hero-sub {
+  font-size: 14px; color: var(--gray-500);
+  line-height: 1.7; margin-bottom: 3rem;
+  font-weight: 300; letter-spacing: 0.3px;
+}
+.perks { display: flex; gap: 1px; margin-bottom: 3rem; width: 100%; max-width: 360px; background: var(--gray-800); border: 1px solid var(--gray-800); border-radius: 2px; overflow: hidden; }
+.perk { flex: 1; background: var(--gray-900); padding: 1rem .5rem; font-size: 11px; color: var(--gray-500); line-height: 1.4; text-align: center; }
+.perk strong { display: block; font-size: 22px; color: var(--white); margin-bottom: 4px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; }
+.btn { display: block; width: 100%; max-width: 360px; border: none; padding: 16px; font-family: 'Archivo', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all .2s; margin-bottom: 10px; letter-spacing: 1.5px; text-transform: uppercase; }
+.btn-white { background: var(--white); color: var(--black); }
+.btn-white:hover { background: var(--gray-200); }
+.btn-outline { background: transparent; color: var(--gray-500); border: 1px solid var(--gray-700, #333); }
+.btn-outline:hover { color: var(--white); border-color: var(--white); }
+
+/* ── REGISTER ── */
+#s-register { background: var(--black); }
+.reg-top { background: var(--gray-900); padding: 3.5rem 1.5rem 2rem; border-bottom: 1px solid var(--gray-800); }
+.back { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray-500); cursor: pointer; background: none; border: none; margin-bottom: 1.5rem; font-family: 'Archivo', sans-serif; letter-spacing: 0.5px; }
+.back:hover { color: var(--white); }
+.reg-top h2 { font-family: 'Archivo Narrow', sans-serif; font-size: 28px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.reg-top p { font-size: 13px; color: var(--gray-500); font-weight: 300; }
+.form-body { padding: 2rem 1.5rem; flex: 1; }
+.form-row { display: flex; gap: 10px; }
+.form-group { flex: 1; margin-bottom: 1.1rem; }
+label { display: block; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gray-500); margin-bottom: 8px; font-weight: 500; }
+input[type=text], input[type=email], input[type=tel], input[type=date] {
+  width: 100%; padding: 13px 14px;
+  background: var(--gray-900); border: 1px solid var(--gray-800);
+  font-family: 'Archivo', sans-serif; font-size: 15px;
+  color: var(--white); outline: none; transition: border-color .2s;
+  border-radius: 0;
+}
+input:focus { border-color: var(--white); }
+input::placeholder { color: var(--gray-600); }
+input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); }
+.privacy { font-size: 11px; color: var(--gray-600); text-align: center; margin: .5rem 0 1.5rem; line-height: 1.6; font-weight: 300; }
+.error-msg { color: #ff4444; font-size: 13px; text-align: center; margin-bottom: 1rem; display: none; }
+.loading-spinner { display: none; text-align: center; padding: 1rem; color: var(--gray-400); font-size: 13px; letter-spacing: 1px; }
+
+/* ── CARD ── */
+#s-card { background: var(--black); }
+.card-header {
+  background: var(--gray-900); padding: 3rem 1.5rem 1.5rem;
+  text-align: center; border-bottom: 1px solid var(--gray-800);
+}
+.card-header .brand-name { margin-bottom: 4px; }
+.welcome-name { font-family: 'Archivo Narrow', sans-serif; font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.member-since { font-size: 11px; color: var(--gray-500); letter-spacing: 0.5px; font-weight: 300; }
+
+/* loyalty card */
+.card-wrap { padding: 1.5rem; }
+.loyalty-card {
+  background: var(--gray-900);
+  border: 1px solid var(--gray-800);
+  padding: 1.5rem; position: relative;
+}
+.lc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
+.lc-brand-name { font-family: 'Archivo Narrow', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: var(--white); }
+.lc-type { font-size: 9px; color: var(--gray-600); letter-spacing: 2px; text-transform: uppercase; margin-top: 3px; }
+.lc-serial { font-size: 10px; color: var(--gray-700, #333); font-weight: 300; letter-spacing: 1px; }
+.lc-member-label { font-size: 9px; color: var(--gray-600); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 3px; }
+.lc-member-name { font-family: 'Archivo Narrow', sans-serif; font-size: 18px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem; }
+
+/* stamps */
+.stamps-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; margin-bottom: .75rem; }
+.stamp {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  border: 1px solid var(--gray-800);
+}
+.stamp.filled { background: var(--white); border-color: var(--white); }
+.stamp.empty { background: transparent; }
+.stamp.reward-slot { background: transparent; border: 1px solid var(--gray-600); border-style: dashed; }
+.stamp-hint { font-size: 9px; color: var(--gray-600); text-align: center; margin-bottom: .75rem; letter-spacing: 0.5px; text-transform: uppercase; }
+.progress-track { background: var(--gray-800); height: 1px; margin-bottom: 8px; }
+.progress-fill { height: 100%; background: var(--white); transition: width .7s ease; }
+.progress-row { display: flex; justify-content: space-between; }
+.prog-left { font-size: 11px; color: var(--gray-500); font-weight: 300; }
+.prog-right { font-size: 11px; color: var(--white); font-weight: 500; letter-spacing: 0.5px; }
+
+/* QR */
+.qr-section { padding: .5rem 1.5rem 1rem; }
+.qr-label { font-size: 9px; color: var(--gray-600); text-align: center; margin-bottom: .75rem; letter-spacing: 2px; text-transform: uppercase; }
+.qr-box { background: white; padding: 1rem; display: flex; align-items: center; justify-content: center; margin: 0 auto; width: fit-content; }
+
+/* wallet */
+.wallet-section { padding: .75rem 1.5rem 1.5rem; }
+.wallet-label { font-size: 10px; color: var(--gray-600); text-align: center; margin-bottom: .75rem; letter-spacing: 2px; text-transform: uppercase; }
+.wallet-btns { display: flex; gap: 8px; }
+.wallet-btn {
+  flex: 1; padding: 13px 8px;
+  background: transparent; border: 1px solid var(--gray-800);
+  cursor: pointer; font-family: 'Archivo', sans-serif;
+  font-size: 12px; font-weight: 500; color: var(--gray-400);
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  transition: all .2s; letter-spacing: 0.5px; text-transform: uppercase;
+}
+.wallet-btn:hover { border-color: var(--white); color: var(--white); }
+
+/* reward */
+.reward-banner {
+  margin: 0 1.5rem .75rem;
+  background: var(--white); padding: 1.1rem 1.25rem;
+  display: flex; align-items: center; gap: 12px;
+}
+.reward-icon-big { font-size: 28px; filter: grayscale(1); }
+.reward-text strong { display: block; font-size: 14px; color: var(--black); font-family: 'Archivo Narrow', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.reward-text span { font-size: 11px; color: var(--gray-500); }
+.btn-redeem { margin-left: auto; background: var(--black); color: var(--white); border: none; padding: 9px 14px; font-family: 'Archivo', sans-serif; font-size: 11px; font-weight: 500; cursor: pointer; flex-shrink: 0; letter-spacing: 1px; text-transform: uppercase; }
+
+/* install */
+.install-banner { margin: 0 1.5rem 1.5rem; background: var(--gray-900); border: 1px solid var(--gray-800); padding: .9rem 1rem; display: flex; align-items: center; gap: 10px; }
+.install-banner p { font-size: 12px; color: var(--gray-500); line-height: 1.5; flex: 1; font-weight: 300; }
+.install-banner strong { color: var(--white); font-size: 12px; font-weight: 500; }
+.btn-install { background: var(--white); color: var(--black); border: none; padding: 8px 14px; font-family: 'Archivo', sans-serif; font-size: 11px; font-weight: 500; cursor: pointer; flex-shrink: 0; letter-spacing: 1px; text-transform: uppercase; }
+
+/* toast */
+.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--white); color: var(--black); padding: .8rem 1.5rem; font-size: 13px; z-index: 999; transition: transform .3s ease; white-space: nowrap; box-shadow: 0 8px 30px rgba(0,0,0,.5); font-weight: 500; letter-spacing: 0.3px; }
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* loader */
+.full-loader { position: fixed; inset: 0; background: var(--black); display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 1.5rem; }
+.spinner { width: 32px; height: 32px; border: 1px solid var(--gray-800); border-top-color: var(--white); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.full-loader p { font-size: 11px; color: var(--gray-600); letter-spacing: 2px; text-transform: uppercase; font-weight: 300; }
+</style>
+</head>
+<body>
+
+<div class="full-loader" id="loader">
+  <div class="spinner"></div>
+  <p>Loading your card...</p>
+</div>
+
+<!-- LANDING -->
+<div class="screen" id="s-landing">
+  <div class="brand-lockup">
+    <div class="brand-name">UTOPICO</div>
+    <div class="brand-line"></div>
+    <div class="brand-slogan">Utopia is a state of mind</div>
+  </div>
+  <div class="big-icon">☕</div>
+  <h1 class="hero">Every coffee<br><em>counts</em></h1>
+  <p class="hero-sub">Collect stamps with every visit.<br>10 coffees — the next one is on us.</p>
+  <div class="perks">
+    <div class="perk"><strong>10</strong>coffees</div>
+    <div class="perk"><strong>1</strong>free</div>
+    <div class="perk"><strong>∞</strong>rewards</div>
+  </div>
+  <button class="btn btn-white" onclick="showScreen('register')">Join for free</button>
+  <button class="btn btn-outline" onclick="loginWithEmail()">I already have an account</button>
+</div>
+
+<!-- REGISTER -->
+<div class="screen" id="s-register">
+  <div class="reg-top">
+    <button class="back" onclick="showScreen('landing')">← Back</button>
+    <h2>Create your card</h2>
+    <p>Free to join — no app required</p>
+  </div>
+  <div class="form-body">
+    <div class="form-row">
+      <div class="form-group"><label>First name</label><input type="text" id="f-name" placeholder="Maria"></div>
+      <div class="form-group"><label>Last name</label><input type="text" id="f-surname" placeholder="Garcia"></div>
+    </div>
+    <div class="form-group"><label>Email</label><input type="email" id="f-email" placeholder="maria@email.com"></div>
+    <div class="form-group"><label>Phone (optional)</label><input type="tel" id="f-phone" placeholder="+34 600 000 000"></div>
+    <div class="form-group"><label>Date of birth</label><input type="date" id="f-birth"></div>
+    <p class="privacy">By signing up you agree to our terms of use and data processing in accordance with GDPR. We'll only use your email to send your card and UTOPICO updates.</p>
+    <div class="error-msg" id="reg-error">Please fill in your first name, last name and email.</div>
+    <div class="loading-spinner" id="reg-loading">Creating your card...</div>
+    <button class="btn btn-white" id="reg-btn" onclick="doRegister()">Create my card →</button>
+  </div>
+</div>
+
+<!-- CARD -->
+<div class="screen" id="s-card">
+  <div class="card-header">
+    <div class="brand-name" style="margin-bottom:4px">UTOPICO</div>
+    <div class="brand-slogan" style="margin-bottom:1rem">Utopia is a state of mind</div>
+    <div class="welcome-name">Hey, <span id="cd-name">Maria</span></div>
+    <div class="member-since" id="cd-since">Member since today</div>
+  </div>
+
+  <div class="reward-banner" id="reward-banner" style="display:none; margin-top:1.5rem;">
+    <div class="reward-icon-big">☕</div>
+    <div class="reward-text">
+      <strong>Free coffee ready!</strong>
+      <span>Show this screen to the barista</span>
+    </div>
+    <button class="btn-redeem" onclick="redeemReward()">Redeem</button>
+  </div>
+
+  <div class="card-wrap">
+    <div class="loyalty-card">
+      <div class="lc-top">
+        <div>
+          <div class="lc-brand-name">UTOPICO</div>
+          <div class="lc-type">Loyalty card</div>
+        </div>
+      </div>
+      <div class="lc-member-label">Member</div>
+      <div class="lc-member-name" id="lc-name">Maria Garcia</div>
+      <div class="stamps-grid" id="stamps-grid"></div>
+      <div class="stamp-hint">Complete 10 stamps for a free coffee</div>
+      <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+      <div class="progress-row">
+        <span class="prog-left" id="prog-left">7 more coffees</span>
+        <span class="prog-right" id="prog-right">3/10</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="qr-section">
+    <div class="qr-label">Barista scans this code</div>
+    <div class="qr-box"><div id="qr-code"></div></div>
+  </div>
+
+  <div class="wallet-section">
+    <div class="wallet-label">Save to your phone</div>
+    <div class="wallet-btns">
+      <button class="wallet-btn" onclick="addToAppleWallet()">🍎 Apple Wallet</button>
+      <button class="wallet-btn" onclick="addToGoogleWallet()">🌐 Google Wallet</button>
+    </div>
+  </div>
+
+  <div class="install-banner" id="install-banner">
+    <p><strong>Add to home screen</strong><br>Access your card without opening a browser</p>
+    <button class="btn-install" onclick="installPWA()">Add</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL      = 'https://ombypthpxggwqxqptkng.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_8CGNBEnrFLv041HyhSuqWw_Q2BX5r-v';
+const BACKEND_URL       = 'https://energetic-motivation-production.up.railway.app';
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser = null;
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstallPrompt = e; });
+
+function installPWA() {
+  if (deferredInstallPrompt) { deferredInstallPrompt.prompt(); deferredInstallPrompt = null; }
+  else { showToast('On iPhone: tap Share → "Add to Home Screen"'); }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('s-' + id).classList.add('active');
+}
+
+function showToast(msg, duration = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+async function doRegister() {
+  const name = document.getElementById('f-name').value.trim();
+  const surname = document.getElementById('f-surname').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const birth = document.getElementById('f-birth').value;
+  const errEl = document.getElementById('reg-error');
+  const loadEl = document.getElementById('reg-loading');
+  const btnEl = document.getElementById('reg-btn');
+  if (!name || !surname || !email) { errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none'; btnEl.style.display = 'none'; loadEl.style.display = 'block';
+  try {
+    const { data: existing } = await db.from('members').select('id').eq('email', email).single();
+    if (existing) { loadMember(existing.id); return; }
+    const { data, error } = await db.from('members').insert({ name, surname, email, phone, birth_date: birth || null, stamps: 0 }).select().single();
+    if (error) throw error;
+    loadMember(data.id);
+  } catch (err) {
+    errEl.textContent = 'Error creating your card. Please try again.';
+    errEl.style.display = 'block'; btnEl.style.display = 'block'; loadEl.style.display = 'none';
+  }
+}
+
+async function loginWithEmail() {
+  const email = prompt('Enter your registered email:');
+  if (!email) return;
+  const { data } = await db.from('members').select('id').eq('email', email.trim()).single();
+  if (data) { loadMember(data.id); }
+  else { showToast("We couldn't find that email. Have you signed up?"); }
+}
+
+async function loadMember(id) {
+  document.getElementById('loader').style.display = 'flex';
+  const { data, error } = await db.from('members').select('*').eq('id', id).single();
+  if (error || !data) { document.getElementById('loader').style.display = 'none'; showToast('Error loading your card.'); return; }
+  currentUser = data;
+  localStorage.setItem('utopico_member_id', id);
+  renderCard(data);
+  db.channel('member-' + id)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members', filter: `id=eq.${id}` }, (payload) => {
+      currentUser = { ...currentUser, ...payload.new };
+      renderCard(currentUser);
+      if (payload.new.stamps > (payload.old?.stamps || 0)) showToast('☕ New stamp added! ' + payload.new.stamps + '/10');
+    }).subscribe();
+  document.getElementById('loader').style.display = 'none';
+  showScreen('card');
+}
+
+function renderCard(member) {
+  const stamps = member.stamps || 0;
+  document.getElementById('cd-name').textContent = member.name;
+  document.getElementById('lc-name').textContent = member.name + ' ' + member.surname;
+  const since = new Date(member.created_at);
+  document.getElementById('cd-since').textContent = 'Member since ' + since.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const grid = document.getElementById('stamps-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const s = document.createElement('div');
+    if (i === 9) { s.className = 'stamp ' + (stamps >= 10 ? 'filled' : 'reward-slot'); s.textContent = stamps >= 10 ? '★' : '★'; }
+    else { s.className = 'stamp ' + (i < stamps ? 'filled' : 'empty'); s.textContent = i < stamps ? '☕' : ''; }
+    grid.appendChild(s);
+  }
+  const pct = Math.min((stamps / 10) * 100, 100);
+  document.getElementById('prog-fill').style.width = pct + '%';
+  const left = Math.max(10 - stamps, 0);
+  document.getElementById('prog-left').textContent = stamps >= 10 ? 'Prize ready to redeem!' : left + ' more coffee' + (left !== 1 ? 's' : '');
+  document.getElementById('prog-right').textContent = Math.min(stamps, 10) + '/10';
+  document.getElementById('reward-banner').style.display = stamps >= 10 ? 'flex' : 'none';
+  const qrEl = document.getElementById('qr-code');
+  qrEl.innerHTML = '';
+  new QRCode(qrEl, { text: BACKEND_URL + '/barista?scan=' + member.id, width: 160, height: 160, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
+}
+
+async function redeemReward() {
+  if (!currentUser || !confirm('Confirm redemption of free coffee?')) return;
+  await db.from('members').update({ stamps: 0 }).eq('id', currentUser.id);
+  await db.from('redemptions').insert({ member_id: currentUser.id, redeemed_at: new Date().toISOString() });
+  showToast('🎉 Reward redeemed! See you for the next 10!', 4000);
+}
+
+async function addToAppleWallet() {
+  if (!currentUser) return;
+  showToast('Generating your pass...');
+  try {
+    const res = await fetch(BACKEND_URL + '/wallet/apple/' + currentUser.id);
+    if (!res.ok) throw new Error();
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'utopico.pkpass'; a.click();
+    URL.revokeObjectURL(url);
+  } catch { showToast('Set up Apple certificates first.'); }
+}
+
+async function addToGoogleWallet() {
+  if (!currentUser) return;
+  showToast('Redirecting to Google Wallet...');
+  try {
+    const res = await fetch(BACKEND_URL + '/wallet/google/' + currentUser.id);
+    const data = await res.json();
+    if (data.url) window.open(data.url, '_blank');
+  } catch { showToast('Set up Google Wallet in the backend first.'); }
+}
+
+async function init() {
+  if (window.matchMedia('(display-mode: standalone)').matches) document.getElementById('install-banner').style.display = 'none';
+  const savedId = localStorage.getItem('utopico_member_id');
+  if (savedId) { await loadMember(savedId); }
+  else { document.getElementById('loader').style.display = 'none'; showScreen('landing'); }
+}
+init();
+</script>
+</body>
+</html>
