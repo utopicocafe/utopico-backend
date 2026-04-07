@@ -33,7 +33,9 @@ app.get('/health', (_, res) => res.json({ status: 'ok', service: 'UTOPICO Loyalt
 app.get('/wallet/apple/:memberId', async (req, res) => {
   try {
     if (!APPLE_CERT || !APPLE_KEY || !APPLE_WWDR) {
-      return res.status(500).json({ error: 'Apple certificates not configured' });
+      return res.status(500).json({ error: 'Apple certificates not configured' });console.log('CERT length:', APPLE_CERT ? APPLE_CERT.length : 0);
+console.log('KEY length:', APPLE_KEY ? APPLE_KEY.length : 0);
+console.log('WWDR length:', APPLE_WWDR ? APPLE_WWDR.length : 0);
     }
 
     const { data: member, error } = await db
