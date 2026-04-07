@@ -26,22 +26,45 @@ const APPLE_WWDR = process.env.APPLE_WWDR_B64
   ? Buffer.from(process.env.APPLE_WWDR_B64, 'base64').toString('utf8')
   : process.env.APPLE_WWDR;
 
+console.log('=== STARTUP CERT CHECK ===');
+console.log('APPLE_CERT_B64 exists:', !!process.env.APPLE_CERT_B64);
+console.log('APPLE_KEY_B64 exists:', !!process.env.APPLE_KEY_B64);
+console.log('APPLE_WWDR_B64 exists:', !!process.env.APPLE_WWDR_B64);
+console.log('APPLE_CERT length:', APPLE_CERT ? APPLE_CERT.length : 0);
+console.log('APPLE_KEY length:', APPLE_KEY ? APPLE_KEY.length : 0);
+console.log('APPLE_WWDR length:', APPLE_WWDR ? APPLE_WWDR.length : 0);
+console.log('APPLE_CERT starts with:', APPLE_CERT ? APPLE_CERT.substring(0, 50) : 'null');
+console.log('==========================');
+
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-app.get('/health', (_, res) => res.json({ status: 'ok', service: 'UTOPICO Loyalty Backend' }));
+app.get('/health', (_, res) => res.json({ 
+  status: 'ok', 
+  service: 'UTOPICO Loyalty Backend',
+  cert: !!APPLE_CERT,
+  key: !!APPLE_KEY,
+  wwdr: !!APPLE_WWDR
+}));
 
 app.get('/wallet/apple/:memberId', async (req, res) => {
   try {
+    console.log('Generating pass for member:', req.params.memberId);
+    console.log('CERT available:', !!APPLE_CERT, 'length:', APPLE_CERT ? APPLE_CERT.length : 0);
+
     if (!APPLE_CERT || !APPLE_KEY || !APPLE_WWDR) {
-      return res.status(500).json({ error: 'Apple certificates not configured' });console.log('CERT length:', APPLE_CERT ? APPLE_CERT.length : 0);
-console.log('KEY length:', APPLE_KEY ? APPLE_KEY.length : 0);
-console.log('WWDR length:', APPLE_WWDR ? APPLE_WWDR.length : 0);
+      console.log('Missing certs!');
+      return res.status(500).json({ error: 'Apple certificates not configured' });
     }
 
     const { data: member, error } = await db
       .from('members').select('*').eq('id', req.params.memberId).single();
 
-    if (error || !member) return res.status(404).json({ error: 'Member not found' });
+    if (error || !member) {
+      console.log('Member not found:', error);
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    console.log('Member found:', member.name);
 
     const stamps = member.stamps || 0;
     const passDir = `/tmp/pass_${member.id}_${Date.now()}`;
@@ -53,6 +76,8 @@ console.log('WWDR length:', APPLE_WWDR ? APPLE_WWDR.length : 0);
     fs.writeFileSync(certPath, APPLE_CERT);
     fs.writeFileSync(keyPath, APPLE_KEY);
     fs.writeFileSync(wwdrPath, APPLE_WWDR);
+
+    console.log('Cert files written');
 
     const authToken = crypto.randomBytes(16).toString('hex');
 
@@ -91,16 +116,18 @@ console.log('WWDR length:', APPLE_WWDR ? APPLE_WWDR.length : 0);
     };
 
     fs.writeFileSync(`${passDir}/pass.json`, JSON.stringify(passJson));
+    console.log('pass.json written');
 
-    // Copy images if they exist
     const imagesDir = path.join(__dirname, 'images');
     if (fs.existsSync(imagesDir)) {
       fs.readdirSync(imagesDir).forEach(img => {
         fs.copyFileSync(path.join(imagesDir, img), `${passDir}/${img}`);
       });
+      console.log('Images copied');
+    } else {
+      console.log('No images folder found');
     }
 
-    // manifest
     const manifest = {};
     fs.readdirSync(passDir).forEach(file => {
       if (!['cert.pem','key.pem','wwdr.pem'].includes(file)) {
@@ -108,28 +135,32 @@ console.log('WWDR length:', APPLE_WWDR ? APPLE_WWDR.length : 0);
       }
     });
     fs.writeFileSync(`${passDir}/manifest.json`, JSON.stringify(manifest));
+    console.log('manifest.json written, files:', Object.keys(manifest));
 
-    // signature
+    console.log('Running openssl sign...');
     execSync(
       `openssl smime -sign -signer ${certPath} -inkey ${keyPath} ` +
       `-certfile ${wwdrPath} -in ${passDir}/manifest.json ` +
       `-out ${passDir}/signature -outform DER -binary`
     );
+    console.log('Signature created');
 
-    // zip
     const pkpassPath = `/tmp/utopico_${member.id}.pkpass`;
     execSync(`cd ${passDir} && zip -r ${pkpassPath} . --exclude cert.pem --exclude key.pem --exclude wwdr.pem`);
+    console.log('pkpass created at:', pkpassPath);
 
     await db.from('members').update({ apple_pass_token: authToken }).eq('id', member.id);
 
     res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
     res.setHeader('Content-Disposition', 'attachment; filename="utopico.pkpass"');
     res.sendFile(pkpassPath);
+    console.log('Pass sent successfully');
 
     setTimeout(() => { try { execSync(`rm -rf ${passDir} ${pkpassPath}`); } catch {} }, 10000);
 
   } catch (err) {
-    console.error('Apple Wallet error:', err.message);
+    console.error('Apple Wallet ERROR:', err.message);
+    console.error('Stack:', err.stack);
     res.status(500).json({ error: 'Error generating pass', details: err.message });
   }
 });
