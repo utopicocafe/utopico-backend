@@ -14,9 +14,17 @@ const SUPABASE_URL         = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const APPLE_TEAM_ID        = process.env.APPLE_TEAM_ID;
 const APPLE_PASS_TYPE_ID   = process.env.APPLE_PASS_TYPE_ID;
-const APPLE_CERT           = process.env.APPLE_CERT;
-const APPLE_KEY            = process.env.APPLE_KEY;
-const APPLE_WWDR           = process.env.APPLE_WWDR;
+
+// Decode base64 certs
+const APPLE_CERT = process.env.APPLE_CERT_B64
+  ? Buffer.from(process.env.APPLE_CERT_B64, 'base64').toString('utf8')
+  : process.env.APPLE_CERT;
+const APPLE_KEY = process.env.APPLE_KEY_B64
+  ? Buffer.from(process.env.APPLE_KEY_B64, 'base64').toString('utf8')
+  : process.env.APPLE_KEY;
+const APPLE_WWDR = process.env.APPLE_WWDR_B64
+  ? Buffer.from(process.env.APPLE_WWDR_B64, 'base64').toString('utf8')
+  : process.env.APPLE_WWDR;
 
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -24,6 +32,10 @@ app.get('/health', (_, res) => res.json({ status: 'ok', service: 'UTOPICO Loyalt
 
 app.get('/wallet/apple/:memberId', async (req, res) => {
   try {
+    if (!APPLE_CERT || !APPLE_KEY || !APPLE_WWDR) {
+      return res.status(500).json({ error: 'Apple certificates not configured' });
+    }
+
     const { data: member, error } = await db
       .from('members').select('*').eq('id', req.params.memberId).single();
 
