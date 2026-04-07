@@ -15,35 +15,29 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const APPLE_TEAM_ID        = process.env.APPLE_TEAM_ID;
 const APPLE_PASS_TYPE_ID   = process.env.APPLE_PASS_TYPE_ID;
 
-// Read certs from files (uploaded to GitHub repo)
-const certPath = path.join(__dirname, 'certs', 'apple_cert.pem');
-const keyPath  = path.join(__dirname, 'certs', 'apple_key.pem');
-const wwdrPath = path.join(__dirname, 'certs', 'wwdr.pem');
+const APPLE_CERT = process.env.APPLE_CERT_B64
+  ? Buffer.from(process.env.APPLE_CERT_B64, 'base64').toString('utf8')
+  : null;
+const APPLE_KEY = process.env.APPLE_KEY_B64
+  ? Buffer.from(process.env.APPLE_KEY_B64, 'base64').toString('utf8')
+  : null;
+const APPLE_WWDR = process.env.APPLE_WWDR_B64
+  ? Buffer.from(process.env.APPLE_WWDR_B64, 'base64').toString('utf8')
+  : null;
 
-const APPLE_CERT = fs.existsSync(certPath) ? fs.readFileSync(certPath, 'utf8') : null;
-const APPLE_KEY  = fs.existsSync(keyPath)  ? fs.readFileSync(keyPath,  'utf8') : null;
-const APPLE_WWDR = fs.existsSync(wwdrPath) ? fs.readFileSync(wwdrPath, 'utf8') : null;
-
-console.log('Cert file exists:', fs.existsSync(certPath));
-console.log('Key file exists:', fs.existsSync(keyPath));
-console.log('WWDR file exists:', fs.existsSync(wwdrPath));
+console.log('CERT starts:', APPLE_CERT ? APPLE_CERT.substring(0,27) : 'null');
 console.log('CERT length:', APPLE_CERT ? APPLE_CERT.length : 0);
 
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-app.get('/health', (_, res) => res.json({ 
-  status: 'ok', 
-  cert: !!APPLE_CERT, 
-  key: !!APPLE_KEY, 
-  wwdr: !!APPLE_WWDR 
-}));
+app.get('/health', (_, res) => res.json({ status: 'ok', cert: !!APPLE_CERT, key: !!APPLE_KEY, wwdr: !!APPLE_WWDR }));
 
 app.get('/wallet/apple/:memberId', async (req, res) => {
   try {
-    console.log('Generating pass for:', req.params.memberId);
+    console.log('Request for member:', req.params.memberId);
 
     if (!APPLE_CERT || !APPLE_KEY || !APPLE_WWDR) {
-      return res.status(500).json({ error: 'Apple certificates not found in /certs folder' });
+      return res.status(500).json({ error: 'Certificates not configured', cert: !!APPLE_CERT, key: !!APPLE_KEY, wwdr: !!APPLE_WWDR });
     }
 
     const { data: member, error } = await db
@@ -52,10 +46,10 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     if (error || !member) return res.status(404).json({ error: 'Member not found' });
 
     const stamps = member.stamps || 0;
-    const passDir = `/tmp/pass_${Date.now()}`;
+    const ts = Date.now();
+    const passDir = `/tmp/pass_${ts}`;
     fs.mkdirSync(passDir, { recursive: true });
 
-    // Write certs to temp dir for signing
     fs.writeFileSync(`${passDir}/cert.pem`, APPLE_CERT);
     fs.writeFileSync(`${passDir}/key.pem`, APPLE_KEY);
     fs.writeFileSync(`${passDir}/wwdr.pem`, APPLE_WWDR);
@@ -98,15 +92,6 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
 
     fs.writeFileSync(`${passDir}/pass.json`, JSON.stringify(passJson));
 
-    // Copy images if they exist
-    const imagesDir = path.join(__dirname, 'images');
-    if (fs.existsSync(imagesDir)) {
-      fs.readdirSync(imagesDir).forEach(img => {
-        fs.copyFileSync(path.join(imagesDir, img), `${passDir}/${img}`);
-      });
-    }
-
-    // Manifest
     const manifest = {};
     fs.readdirSync(passDir).forEach(file => {
       if (!['cert.pem','key.pem','wwdr.pem'].includes(file)) {
@@ -114,43 +99,25 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
       }
     });
     fs.writeFileSync(`${passDir}/manifest.json`, JSON.stringify(manifest));
-    console.log('manifest files:', Object.keys(manifest));
+    console.log('manifest:', Object.keys(manifest));
 
-    // Signature
-    execSync(
-      `openssl smime -sign -signer ${passDir}/cert.pem -inkey ${passDir}/key.pem ` +
-      `-certfile ${passDir}/wwdr.pem -in ${passDir}/manifest.json ` +
-      `-out ${passDir}/signature -outform DER -binary`
-    );
-    console.log('Signed OK');
+    execSync(`openssl smime -sign -signer ${passDir}/cert.pem -inkey ${passDir}/key.pem -certfile ${passDir}/wwdr.pem -in ${passDir}/manifest.json -out ${passDir}/signature -outform DER -binary`);
+    console.log('signed');
 
-    // Create pkpass using python3 (always available on Linux)
-    const pkpassPath = `/tmp/utopico_${member.id}.pkpass`;
-    const files = fs.readdirSync(passDir)
-      .filter(f => !['cert.pem','key.pem','wwdr.pem'].includes(f));
-    
-    const pyScript = `
-import zipfile, os, sys
-passDir = '${passDir}'
-pkpassPath = '${pkpassPath}'
-files = ${JSON.stringify(files)}
-with zipfile.ZipFile(pkpassPath, 'w', zipfile.ZIP_DEFLATED) as z:
-    for f in files:
-        z.write(os.path.join(passDir, f), f)
-print('created', pkpassPath, 'with', files)
-`;
-    fs.writeFileSync(`${passDir}/make_pass.py`, pyScript);
-    const result = execSync(`python3 ${passDir}/make_pass.py`).toString();
-    console.log('pkpass result:', result.trim());
+    const pkpassPath = `/tmp/utopico_${ts}.pkpass`;
+    const pyScript = `import zipfile,os\nfiles=[f for f in os.listdir('${passDir}') if f not in ['cert.pem','key.pem','wwdr.pem']]\nzipfile.ZipFile('${pkpassPath}','w').writelines([]) \nz=zipfile.ZipFile('${pkpassPath}','w',zipfile.ZIP_DEFLATED)\n[z.write(os.path.join('${passDir}',f),f) for f in files]\nz.close()\nprint('ok',files)`;
+    fs.writeFileSync(`${passDir}/z.py`, pyScript);
+    const r = execSync(`python3 ${passDir}/z.py`).toString();
+    console.log('zip:', r.trim());
 
     await db.from('members').update({ apple_pass_token: authToken }).eq('id', member.id);
 
     res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
     res.setHeader('Content-Disposition', 'attachment; filename="utopico.pkpass"');
-    res.sendFile(pkpassPath);
-    console.log('Pass sent!');
-
-    setTimeout(() => { try { execSync(`rm -rf ${passDir} ${pkpassPath}`); } catch {} }, 10000);
+    res.sendFile(pkpassPath, () => {
+      try { execSync(`rm -rf ${passDir} ${pkpassPath}`); } catch {}
+    });
+    console.log('done');
 
   } catch (err) {
     console.error('ERROR:', err.message);
@@ -159,10 +126,7 @@ print('created', pkpassPath, 'with', files)
 });
 
 app.post('/webhook/stamp-updated', (req, res) => res.sendStatus(200));
-
-app.get('/barista', (req, res) => {
-  res.redirect(`https://utopicocafe.github.io/utopico-backend/barista.html?scan=${req.query.scan}`);
-});
+app.get('/barista', (req, res) => res.redirect(`https://utopicocafe.github.io/utopico-backend/barista.html?scan=${req.query.scan}`));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`UTOPICO backend running on port ${PORT}`));
