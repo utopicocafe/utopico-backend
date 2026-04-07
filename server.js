@@ -15,34 +15,107 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const APPLE_TEAM_ID        = process.env.APPLE_TEAM_ID;
 const APPLE_PASS_TYPE_ID   = process.env.APPLE_PASS_TYPE_ID;
 
-const APPLE_CERT = process.env.APPLE_CERT_B64
-  ? Buffer.from(process.env.APPLE_CERT_B64, 'base64').toString('utf8')
-  : null;
-const APPLE_KEY = process.env.APPLE_KEY_B64
-  ? Buffer.from(process.env.APPLE_KEY_B64, 'base64').toString('utf8')
-  : null;
-const APPLE_WWDR = process.env.APPLE_WWDR_B64
-  ? Buffer.from(process.env.APPLE_WWDR_B64, 'base64').toString('utf8')
-  : null;
+const APPLE_CERT = process.env.APPLE_CERT_B64 ? Buffer.from(process.env.APPLE_CERT_B64, 'base64').toString('utf8') : null;
+const APPLE_KEY  = process.env.APPLE_KEY_B64  ? Buffer.from(process.env.APPLE_KEY_B64,  'base64').toString('utf8') : null;
+const APPLE_WWDR = process.env.APPLE_WWDR_B64 ? Buffer.from(process.env.APPLE_WWDR_B64, 'base64').toString('utf8') : null;
 
 console.log('CERT starts:', APPLE_CERT ? APPLE_CERT.substring(0,27) : 'null');
-console.log('CERT length:', APPLE_CERT ? APPLE_CERT.length : 0);
 
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-app.get('/health', (_, res) => res.json({ status: 'ok', cert: !!APPLE_CERT, key: !!APPLE_KEY, wwdr: !!APPLE_WWDR }));
+// Pure Node.js ZIP writer (no external tools needed)
+function writeZip(files) {
+  // files = [{name, data}] where data is Buffer
+  const parts = [];
+  const centralDir = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBytes = Buffer.from(file.name, 'utf8');
+    const data = file.data;
+    const crc = crc32(data);
+    const localHeader = Buffer.alloc(30 + nameBytes.length);
+    localHeader.writeUInt32LE(0x04034b50, 0); // signature
+    localHeader.writeUInt16LE(20, 4);          // version
+    localHeader.writeUInt16LE(0, 6);           // flags
+    localHeader.writeUInt16LE(0, 8);           // no compression
+    localHeader.writeUInt16LE(0, 10);          // mod time
+    localHeader.writeUInt16LE(0, 12);          // mod date
+    localHeader.writeUInt32LE(crc >>> 0, 14);  // crc32
+    localHeader.writeUInt32LE(data.length, 18);// compressed size
+    localHeader.writeUInt32LE(data.length, 22);// uncompressed size
+    localHeader.writeUInt16LE(nameBytes.length, 26); // name length
+    localHeader.writeUInt16LE(0, 28);          // extra length
+    nameBytes.copy(localHeader, 30);
+
+    const centralEntry = Buffer.alloc(46 + nameBytes.length);
+    centralEntry.writeUInt32LE(0x02014b50, 0); // signature
+    centralEntry.writeUInt16LE(20, 4);
+    centralEntry.writeUInt16LE(20, 6);
+    centralEntry.writeUInt16LE(0, 8);
+    centralEntry.writeUInt16LE(0, 10);
+    centralEntry.writeUInt16LE(0, 12);
+    centralEntry.writeUInt16LE(0, 14);
+    centralEntry.writeUInt32LE(crc >>> 0, 16);
+    centralEntry.writeUInt32LE(data.length, 20);
+    centralEntry.writeUInt32LE(data.length, 24);
+    centralEntry.writeUInt16LE(nameBytes.length, 28);
+    centralEntry.writeUInt16LE(0, 30);
+    centralEntry.writeUInt16LE(0, 32);
+    centralEntry.writeUInt16LE(0, 34);
+    centralEntry.writeUInt16LE(0, 36);
+    centralEntry.writeUInt32LE(0, 38);
+    centralEntry.writeUInt32LE(offset, 42);
+    nameBytes.copy(centralEntry, 46);
+
+    parts.push(localHeader, data);
+    centralDir.push(centralEntry);
+    offset += localHeader.length + data.length;
+  }
+
+  const centralDirBuf = Buffer.concat(centralDir);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(files.length, 8);
+  eocd.writeUInt16LE(files.length, 10);
+  eocd.writeUInt32LE(centralDirBuf.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...parts, centralDirBuf, eocd]);
+}
+
+function crc32(buf) {
+  const table = makeCrcTable();
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) {
+    crc = (crc >>> 8) ^ table[(crc ^ buf[i]) & 0xFF];
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+let crcTable = null;
+function makeCrcTable() {
+  if (crcTable) return crcTable;
+  crcTable = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    crcTable[i] = c;
+  }
+  return crcTable;
+}
+
+app.get('/health', (_, res) => res.json({ status: 'ok', cert: !!APPLE_CERT }));
 
 app.get('/wallet/apple/:memberId', async (req, res) => {
   try {
-    console.log('Request for member:', req.params.memberId);
+    console.log('Request for:', req.params.memberId);
+    if (!APPLE_CERT || !APPLE_KEY || !APPLE_WWDR) return res.status(500).json({ error: 'Certs missing' });
 
-    if (!APPLE_CERT || !APPLE_KEY || !APPLE_WWDR) {
-      return res.status(500).json({ error: 'Certificates not configured' });
-    }
-
-    const { data: member, error } = await db
-      .from('members').select('*').eq('id', req.params.memberId).single();
-
+    const { data: member, error } = await db.from('members').select('*').eq('id', req.params.memberId).single();
     if (error || !member) return res.status(404).json({ error: 'Member not found' });
 
     const stamps = member.stamps || 0;
@@ -55,7 +128,6 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     fs.writeFileSync(`${passDir}/wwdr.pem`, APPLE_WWDR);
 
     const authToken = crypto.randomBytes(16).toString('hex');
-
     const passJson = {
       formatVersion: 1,
       passTypeIdentifier: APPLE_PASS_TYPE_ID,
@@ -104,9 +176,16 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     execSync(`openssl smime -sign -signer ${passDir}/cert.pem -inkey ${passDir}/key.pem -certfile ${passDir}/wwdr.pem -in ${passDir}/manifest.json -out ${passDir}/signature -outform DER -binary`);
     console.log('signed');
 
+    // Build pkpass using pure Node.js ZIP
+    const skipFiles = new Set(['cert.pem','key.pem','wwdr.pem']);
+    const zipFiles = fs.readdirSync(passDir)
+      .filter(f => !skipFiles.has(f))
+      .map(f => ({ name: f, data: fs.readFileSync(`${passDir}/${f}`) }));
+
+    const pkpassBuf = writeZip(zipFiles);
     const pkpassPath = `/tmp/utopico_${ts}.pkpass`;
-    execSync(`cd ${passDir} && zip ${pkpassPath} pass.json manifest.json signature $(ls *.png 2>/dev/null || true)`);
-    console.log('zipped');
+    fs.writeFileSync(pkpassPath, pkpassBuf);
+    console.log('pkpass written, size:', pkpassBuf.length);
 
     await db.from('members').update({ apple_pass_token: authToken }).eq('id', member.id);
 
@@ -115,7 +194,7 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     res.sendFile(pkpassPath, () => {
       try { execSync(`rm -rf ${passDir} ${pkpassPath}`); } catch {}
     });
-    console.log('done');
+    console.log('done!');
 
   } catch (err) {
     console.error('ERROR:', err.message);
