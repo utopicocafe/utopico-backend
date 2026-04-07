@@ -5,7 +5,6 @@ const fs       = require('fs');
 const crypto   = require('crypto');
 const { execSync } = require('child_process');
 const { createClient } = require('@supabase/supabase-js');
-const archiver = require('archiver');
 
 const app = express();
 app.use(cors());
@@ -94,9 +93,8 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     };
 
     fs.writeFileSync(`${passDir}/pass.json`, JSON.stringify(passJson));
-    console.log('pass.json written');
 
-    // Copy images
+    // Copy images if they exist
     const imagesDir = path.join(__dirname, 'images');
     if (fs.existsSync(imagesDir)) {
       fs.readdirSync(imagesDir).forEach(img => {
@@ -104,7 +102,7 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
       });
     }
 
-    // Manifest - only non-cert files
+    // Manifest
     const manifest = {};
     fs.readdirSync(passDir).forEach(file => {
       if (!['cert.pem','key.pem','wwdr.pem'].includes(file)) {
@@ -112,7 +110,7 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
       }
     });
     fs.writeFileSync(`${passDir}/manifest.json`, JSON.stringify(manifest));
-    console.log('manifest written:', Object.keys(manifest));
+    console.log('manifest files:', Object.keys(manifest));
 
     // Signature
     console.log('Signing...');
@@ -123,21 +121,39 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     );
     console.log('Signed OK');
 
-    // Create pkpass using archiver (pure Node.js, no zip command needed)
+    // Check if zip is available, use it
+    let zipCmd;
+    try {
+      execSync('which zip');
+      zipCmd = 'zip';
+      console.log('zip available');
+    } catch {
+      console.log('zip not found, trying python3');
+      zipCmd = null;
+    }
+
     const pkpassPath = `/tmp/utopico_${member.id}.pkpass`;
-    await new Promise((resolve, reject) => {
-      const output = fs.createWriteStream(pkpassPath);
-      const archive = archiver('zip', { zlib: { level: 9 } });
-      output.on('close', resolve);
-      archive.on('error', reject);
-      archive.pipe(output);
-      fs.readdirSync(passDir).forEach(file => {
-        if (!['cert.pem','key.pem','wwdr.pem'].includes(file)) {
-          archive.file(`${passDir}/${file}`, { name: file });
-        }
-      });
-      archive.finalize();
-    });
+
+    if (zipCmd) {
+      // Use system zip
+      const files = fs.readdirSync(passDir)
+        .filter(f => !['cert.pem','key.pem','wwdr.pem'].includes(f))
+        .join(' ');
+      execSync(`cd ${passDir} && zip ${pkpassPath} ${files}`);
+    } else {
+      // Use python3 zipfile (always available)
+      const pyScript = `
+import zipfile, os
+files = [f for f in os.listdir('${passDir}') if f not in ['cert.pem','key.pem','wwdr.pem']]
+with zipfile.ZipFile('${pkpassPath}', 'w', zipfile.ZIP_DEFLATED) as z:
+    for f in files:
+        z.write(os.path.join('${passDir}', f), f)
+print('done', files)
+`;
+      fs.writeFileSync(`${passDir}/make_pass.py`, pyScript);
+      const result = execSync(`python3 ${passDir}/make_pass.py`).toString();
+      console.log('python zip result:', result);
+    }
 
     console.log('pkpass created');
     await db.from('members').update({ apple_pass_token: authToken }).eq('id', member.id);
@@ -151,6 +167,7 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
 
   } catch (err) {
     console.error('ERROR:', err.message);
+    console.error(err.stack);
     res.status(500).json({ error: err.message });
   }
 });
