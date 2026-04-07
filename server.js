@@ -37,7 +37,7 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     console.log('Request for member:', req.params.memberId);
 
     if (!APPLE_CERT || !APPLE_KEY || !APPLE_WWDR) {
-      return res.status(500).json({ error: 'Certificates not configured', cert: !!APPLE_CERT, key: !!APPLE_KEY, wwdr: !!APPLE_WWDR });
+      return res.status(500).json({ error: 'Certificates not configured' });
     }
 
     const { data: member, error } = await db
@@ -105,10 +105,8 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     console.log('signed');
 
     const pkpassPath = `/tmp/utopico_${ts}.pkpass`;
-    const pyScript = `import zipfile,os\nfiles=[f for f in os.listdir('${passDir}') if f not in ['cert.pem','key.pem','wwdr.pem']]\nzipfile.ZipFile('${pkpassPath}','w').writelines([]) \nz=zipfile.ZipFile('${pkpassPath}','w',zipfile.ZIP_DEFLATED)\n[z.write(os.path.join('${passDir}',f),f) for f in files]\nz.close()\nprint('ok',files)`;
-    fs.writeFileSync(`${passDir}/z.py`, pyScript);
-    const r = execSync(`python3 ${passDir}/z.py`).toString();
-    console.log('zip:', r.trim());
+    execSync(`cd ${passDir} && zip ${pkpassPath} pass.json manifest.json signature $(ls *.png 2>/dev/null || true)`);
+    console.log('zipped');
 
     await db.from('members').update({ apple_pass_token: authToken }).eq('id', member.id);
 
