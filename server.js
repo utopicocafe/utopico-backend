@@ -15,29 +15,35 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const APPLE_TEAM_ID        = process.env.APPLE_TEAM_ID;
 const APPLE_PASS_TYPE_ID   = process.env.APPLE_PASS_TYPE_ID;
 
-const APPLE_CERT = process.env.APPLE_CERT_B64
-  ? Buffer.from(process.env.APPLE_CERT_B64, 'base64').toString('utf8')
-  : process.env.APPLE_CERT;
-const APPLE_KEY = process.env.APPLE_KEY_B64
-  ? Buffer.from(process.env.APPLE_KEY_B64, 'base64').toString('utf8')
-  : process.env.APPLE_KEY;
-const APPLE_WWDR = process.env.APPLE_WWDR_B64
-  ? Buffer.from(process.env.APPLE_WWDR_B64, 'base64').toString('utf8')
-  : process.env.APPLE_WWDR;
+// Read certs from files (uploaded to GitHub repo)
+const certPath = path.join(__dirname, 'certs', 'apple_cert.pem');
+const keyPath  = path.join(__dirname, 'certs', 'apple_key.pem');
+const wwdrPath = path.join(__dirname, 'certs', 'wwdr.pem');
 
-console.log('CERT starts with:', APPLE_CERT ? APPLE_CERT.substring(0, 30) : 'null');
+const APPLE_CERT = fs.existsSync(certPath) ? fs.readFileSync(certPath, 'utf8') : null;
+const APPLE_KEY  = fs.existsSync(keyPath)  ? fs.readFileSync(keyPath,  'utf8') : null;
+const APPLE_WWDR = fs.existsSync(wwdrPath) ? fs.readFileSync(wwdrPath, 'utf8') : null;
+
+console.log('Cert file exists:', fs.existsSync(certPath));
+console.log('Key file exists:', fs.existsSync(keyPath));
+console.log('WWDR file exists:', fs.existsSync(wwdrPath));
 console.log('CERT length:', APPLE_CERT ? APPLE_CERT.length : 0);
 
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-app.get('/health', (_, res) => res.json({ status: 'ok', cert: !!APPLE_CERT, key: !!APPLE_KEY, wwdr: !!APPLE_WWDR }));
+app.get('/health', (_, res) => res.json({ 
+  status: 'ok', 
+  cert: !!APPLE_CERT, 
+  key: !!APPLE_KEY, 
+  wwdr: !!APPLE_WWDR 
+}));
 
 app.get('/wallet/apple/:memberId', async (req, res) => {
   try {
     console.log('Generating pass for:', req.params.memberId);
 
     if (!APPLE_CERT || !APPLE_KEY || !APPLE_WWDR) {
-      return res.status(500).json({ error: 'Apple certificates not configured' });
+      return res.status(500).json({ error: 'Apple certificates not found in /certs folder' });
     }
 
     const { data: member, error } = await db
@@ -49,12 +55,10 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     const passDir = `/tmp/pass_${Date.now()}`;
     fs.mkdirSync(passDir, { recursive: true });
 
-    const certPath = `${passDir}/cert.pem`;
-    const keyPath  = `${passDir}/key.pem`;
-    const wwdrPath = `${passDir}/wwdr.pem`;
-    fs.writeFileSync(certPath, APPLE_CERT);
-    fs.writeFileSync(keyPath, APPLE_KEY);
-    fs.writeFileSync(wwdrPath, APPLE_WWDR);
+    // Write certs to temp dir for signing
+    fs.writeFileSync(`${passDir}/cert.pem`, APPLE_CERT);
+    fs.writeFileSync(`${passDir}/key.pem`, APPLE_KEY);
+    fs.writeFileSync(`${passDir}/wwdr.pem`, APPLE_WWDR);
 
     const authToken = crypto.randomBytes(16).toString('hex');
 
@@ -113,49 +117,32 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
     console.log('manifest files:', Object.keys(manifest));
 
     // Signature
-    console.log('Signing...');
     execSync(
-      `openssl smime -sign -signer ${certPath} -inkey ${keyPath} ` +
-      `-certfile ${wwdrPath} -in ${passDir}/manifest.json ` +
+      `openssl smime -sign -signer ${passDir}/cert.pem -inkey ${passDir}/key.pem ` +
+      `-certfile ${passDir}/wwdr.pem -in ${passDir}/manifest.json ` +
       `-out ${passDir}/signature -outform DER -binary`
     );
     console.log('Signed OK');
 
-    // Check if zip is available, use it
-    let zipCmd;
-    try {
-      execSync('which zip');
-      zipCmd = 'zip';
-      console.log('zip available');
-    } catch {
-      console.log('zip not found, trying python3');
-      zipCmd = null;
-    }
-
+    // Create pkpass using python3 (always available on Linux)
     const pkpassPath = `/tmp/utopico_${member.id}.pkpass`;
-
-    if (zipCmd) {
-      // Use system zip
-      const files = fs.readdirSync(passDir)
-        .filter(f => !['cert.pem','key.pem','wwdr.pem'].includes(f))
-        .join(' ');
-      execSync(`cd ${passDir} && zip ${pkpassPath} ${files}`);
-    } else {
-      // Use python3 zipfile (always available)
-      const pyScript = `
-import zipfile, os
-files = [f for f in os.listdir('${passDir}') if f not in ['cert.pem','key.pem','wwdr.pem']]
-with zipfile.ZipFile('${pkpassPath}', 'w', zipfile.ZIP_DEFLATED) as z:
+    const files = fs.readdirSync(passDir)
+      .filter(f => !['cert.pem','key.pem','wwdr.pem'].includes(f));
+    
+    const pyScript = `
+import zipfile, os, sys
+passDir = '${passDir}'
+pkpassPath = '${pkpassPath}'
+files = ${JSON.stringify(files)}
+with zipfile.ZipFile(pkpassPath, 'w', zipfile.ZIP_DEFLATED) as z:
     for f in files:
-        z.write(os.path.join('${passDir}', f), f)
-print('done', files)
+        z.write(os.path.join(passDir, f), f)
+print('created', pkpassPath, 'with', files)
 `;
-      fs.writeFileSync(`${passDir}/make_pass.py`, pyScript);
-      const result = execSync(`python3 ${passDir}/make_pass.py`).toString();
-      console.log('python zip result:', result);
-    }
+    fs.writeFileSync(`${passDir}/make_pass.py`, pyScript);
+    const result = execSync(`python3 ${passDir}/make_pass.py`).toString();
+    console.log('pkpass result:', result.trim());
 
-    console.log('pkpass created');
     await db.from('members').update({ apple_pass_token: authToken }).eq('id', member.id);
 
     res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
@@ -167,7 +154,6 @@ print('done', files)
 
   } catch (err) {
     console.error('ERROR:', err.message);
-    console.error(err.stack);
     res.status(500).json({ error: err.message });
   }
 });
