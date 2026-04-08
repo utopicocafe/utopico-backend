@@ -74,7 +74,7 @@ function buildPass(member) {
     teamIdentifier: APPLE_TEAM_ID,
     organizationName: 'UTOPICO',
     description: 'UTOPICO Loyalty Card',
-    logoText: 'UTOPICO',
+    logoText: '',
     backgroundColor: 'rgb(28, 27, 27)',
     foregroundColor: 'rgb(255, 255, 255)',
     labelColor: 'rgb(160, 160, 160)',
