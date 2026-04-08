@@ -71,7 +71,7 @@ function buildPass(member) {
     organizationName: 'UTOPICO',
     description: 'UTOPICO Loyalty Card',
     logoText: '',
-    backgroundColor: 'rgb(28, 27, 27)',
+    backgroundColor: 'rgb(00, 00, 00)',
     foregroundColor: 'rgb(255, 255, 255)',
     labelColor: 'rgb(160, 160, 160)',
     storeCard: {
