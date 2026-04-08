@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#1C1B1B">
+<title>UTOPICO — Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #1C1B1B; --bg2: #242323; --bg3: #2e2d2d;
+  --white: #ffffff; --gray: #888; --gray2: #444;
+  --border: rgba(255,255,255,0.08);
+  --green: #4ade80; --red: #ff6b6b;
+}
+html, body { min-height: 100%; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--white); -webkit-font-smoothing: antialiased; }
+
+/* LOGIN */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; position: relative; overflow: hidden; }
+.login-wrap::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px); pointer-events: none; }
+.login-box { width: 100%; max-width: 360px; position: relative; z-index: 1; }
+.login-brand { margin-bottom: 3rem; }
+.brand-name { font-size: 13px; font-weight: 700; letter-spacing: 6px; color: var(--white); text-transform: uppercase; }
+.brand-sub { font-size: 9px; font-weight: 300; letter-spacing: 3px; color: var(--gray2); text-transform: uppercase; margin-top: 6px; }
+.login-title { font-size: 26px; font-weight: 300; color: var(--white); margin-bottom: 6px; letter-spacing: 0.5px; }
+.login-desc { font-size: 12px; color: var(--gray); margin-bottom: 2rem; }
+.field { margin-bottom: 1rem; }
+.field label { display: block; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gray); margin-bottom: 8px; }
+.field input { width: 100%; padding: 13px 14px; background: var(--bg2); border: 0.5px solid var(--border); font-family: inherit; font-size: 15px; color: var(--white); outline: none; }
+.field input:focus { border-color: var(--white); }
+.login-btn { width: 100%; background: var(--white); color: var(--bg); border: none; padding: 15px; font-family: inherit; font-size: 12px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; margin-top: .5rem; }
+.login-btn:hover { background: #e0e0e0; }
+.login-error { font-size: 12px; color: var(--red); margin-top: .75rem; text-align: center; height: 16px; }
+
+/* ADMIN APP */
+.admin-app { display: none; min-height: 100vh; }
+.admin-app.active { display: block; }
+
+.admin-header { background: var(--bg2); padding: 1.5rem 2rem; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+.admin-brand { font-size: 11px; font-weight: 700; letter-spacing: 4px; color: var(--white); text-transform: uppercase; }
+.admin-sub { font-size: 8px; font-weight: 300; letter-spacing: 2px; color: var(--gray2); text-transform: uppercase; margin-top: 3px; }
+.logout-btn { background: none; border: 0.5px solid var(--border); color: var(--gray); padding: 7px 14px; font-family: inherit; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+.logout-btn:hover { border-color: var(--white); color: var(--white); }
+
+.admin-nav { background: var(--bg2); border-bottom: 0.5px solid var(--border); display: flex; padding: 0 2rem; }
+.nav-btn { padding: 14px 0; margin-right: 2rem; font-family: inherit; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gray); background: none; border: none; cursor: pointer; border-bottom: 1.5px solid transparent; margin-bottom: -0.5px; }
+.nav-btn.active { color: var(--white); border-bottom-color: var(--white); }
+
+.admin-content { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+
+/* STATS */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--border); margin-bottom: 2rem; }
+.stat-card { background: var(--bg2); padding: 1.5rem; }
+.stat-n { font-size: 36px; font-weight: 300; color: var(--white); line-height: 1; }
+.stat-l { font-size: 9px; color: var(--gray); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 6px; }
+
+/* TABLES */
+.section-title { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gray); margin-bottom: 1rem; }
+.table-wrap { background: var(--bg2); border: 0.5px solid var(--border); overflow-x: auto; margin-bottom: 2rem; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { padding: 12px 16px; text-align: left; font-size: 9px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gray); border-bottom: 0.5px solid var(--border); white-space: nowrap; }
+td { padding: 12px 16px; border-bottom: 0.5px solid var(--border); color: var(--white); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg3); }
+
+.stamp-bar { display: flex; gap: 3px; align-items: center; }
+.stamp-pip { width: 8px; height: 8px; background: var(--border); }
+.stamp-pip.on { background: var(--white); }
+
+.badge { display: inline-block; padding: 3px 8px; font-size: 10px; letter-spacing: 0.5px; }
+.badge-green { background: rgba(74,222,128,0.1); color: var(--green); }
+.badge-gray { background: var(--bg3); color: var(--gray); }
+
+/* SEARCH */
+.search-bar { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+.search-bar input { flex: 1; padding: 10px 14px; background: var(--bg2); border: 0.5px solid var(--border); font-family: inherit; font-size: 13px; color: var(--white); outline: none; max-width: 320px; }
+.search-bar input:focus { border-color: var(--white); }
+.search-bar input::placeholder { color: var(--gray2); }
+
+/* MEMBER DETAIL */
+.member-detail { display: none; }
+.member-detail.visible { display: block; }
+.back-btn { background: none; border: none; color: var(--gray); font-family: inherit; font-size: 12px; letter-spacing: 1px; cursor: pointer; margin-bottom: 1.5rem; padding: 0; }
+.back-btn:hover { color: var(--white); }
+.member-header { background: var(--bg2); border: 0.5px solid var(--border); padding: 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1.5rem; }
+.member-avatar { width: 56px; height: 56px; background: var(--white); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--bg); flex-shrink: 0; }
+.member-info-name { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+.member-info-email { font-size: 13px; color: var(--gray); }
+.member-info-since { font-size: 11px; color: var(--gray2); margin-top: 4px; }
+
+/* VIEWS */
+.view { display: none; }
+.view.active { display: block; }
+
+/* LOADING */
+.loading { text-align: center; padding: 3rem; font-size: 12px; color: var(--gray); letter-spacing: 1px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login-wrap">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="brand-name">UTOPICO</div>
+      <div class="brand-sub">Admin access</div>
+    </div>
+    <div class="login-title">Owner login</div>
+    <p class="login-desc">Restricted to authorised personnel only</p>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="admin-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Enter →</button>
+    <p class="login-error" id="login-err"></p>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div class="admin-app" id="admin-app">
+  <div class="admin-header">
+    <div><div class="admin-brand">UTOPICO</div><div class="admin-sub">Owner dashboard</div></div>
+    <button class="logout-btn" onclick="adminLogout()">Sign out</button>
+  </div>
+  <div class="admin-nav">
+    <button class="nav-btn active" onclick="switchView('overview', this)">Overview</button>
+    <button class="nav-btn" onclick="switchView('members', this)">Members</button>
+    <button class="nav-btn" onclick="switchView('activity', this)">Activity</button>
+  </div>
+
+  <div class="admin-content">
+
+    <!-- OVERVIEW -->
+    <div class="view active" id="view-overview">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card"><div class="stat-n" id="stat-members">—</div><div class="stat-l">Total members</div></div>
+        <div class="stat-card"><div class="stat-n" id="stat-stamps">—</div><div class="stat-l">Stamps given</div></div>
+        <div class="stat-card"><div class="stat-n" id="stat-redeemed">—</div><div class="stat-l">Free coffees</div></div>
+        <div class="stat-card"><div class="stat-n" id="stat-new">—</div><div class="stat-l">New this month</div></div>
+      </div>
+      <p class="section-title">Recent activity</p>
+      <div class="table-wrap" id="overview-activity">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+    <!-- MEMBERS -->
+    <div class="view" id="view-members">
+      <div id="members-list-view">
+        <div class="search-bar">
+          <input type="text" id="member-search" placeholder="Search by name or email..." oninput="filterMembers()">
+        </div>
+        <div class="table-wrap" id="members-table">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+      <div class="member-detail" id="member-detail">
+        <button class="back-btn" onclick="backToMembers()">← Back to members</button>
+        <div class="member-header">
+          <div class="member-avatar" id="detail-avatar">MG</div>
+          <div>
+            <div class="member-info-name" id="detail-name">Maria Garcia</div>
+            <div class="member-info-email" id="detail-email">maria@email.com</div>
+            <div class="member-info-since" id="detail-since">Member since April 2026</div>
+          </div>
+        </div>
+        <div class="stats-grid" style="margin-bottom:1.5rem">
+          <div class="stat-card"><div class="stat-n" id="detail-stamps">0</div><div class="stat-l">Current stamps</div></div>
+          <div class="stat-card"><div class="stat-n" id="detail-total">0</div><div class="stat-l">Total visits</div></div>
+          <div class="stat-card"><div class="stat-n" id="detail-rewards">0</div><div class="stat-l">Rewards redeemed</div></div>
+        </div>
+        <p class="section-title">Stamp history</p>
+        <div class="table-wrap" id="detail-history">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY -->
+    <div class="view" id="view-activity">
+      <p class="section-title">All stamp events</p>
+      <div class="table-wrap" id="activity-table">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL      = 'https://ombypthpxggwqxqptkng.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_8CGNBEnrFLv041HyhSuqWw_Q2BX5r-v';
+const ADMIN_PASSWORD    = 'utopico2026'; // ← Cambia esta contraseña
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let allMembers = [];
+
+// ── LOGIN ──
+function doLogin() {
+  const pass = document.getElementById('admin-pass').value;
+  if (pass === ADMIN_PASSWORD) {
+    document.getElementById('login-wrap').style.display = 'none';
+    document.getElementById('admin-app').classList.add('active');
+    loadOverview();
+    loadMembers();
+    loadActivity();
+  } else {
+    document.getElementById('login-err').textContent = 'Incorrect password';
+    setTimeout(() => document.getElementById('login-err').textContent = '', 2000);
+  }
+}
+function adminLogout() {
+  document.getElementById('admin-app').classList.remove('active');
+  document.getElementById('login-wrap').style.display = 'flex';
+  document.getElementById('admin-pass').value = '';
+}
+
+// ── NAV ──
+function switchView(view, el) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('view-' + view).classList.add('active');
+}
+
+// ── OVERVIEW ──
+async function loadOverview() {
+  const { data: members } = await db.from('members').select('*');
+  const { data: events } = await db.from('stamp_events').select('*');
+  const { data: redemptions } = await db.from('redemptions').select('*');
+
+  const now = new Date();
+  const thisMonth = members ? members.filter(m => {
+    const d = new Date(m.created_at);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length : 0;
+
+  document.getElementById('stat-members').textContent = members ? members.length : 0;
+  document.getElementById('stat-stamps').textContent = events ? events.filter(e => e.event_type === 'stamp').length : 0;
+  document.getElementById('stat-redeemed').textContent = redemptions ? redemptions.length : 0;
+  document.getElementById('stat-new').textContent = thisMonth;
+
+  const { data: recent } = await db.from('stamp_events').select('*, members(name, surname, email)').order('created_at', { ascending: false }).limit(10);
+  const wrap = document.getElementById('overview-activity');
+  if (!recent || !recent.length) { wrap.innerHTML = '<div class="loading">No activity yet</div>'; return; }
+  wrap.innerHTML = '<table><thead><tr><th>Member</th><th>Email</th><th>Event</th><th>Time</th></tr></thead><tbody>' +
+    recent.map(ev => {
+      const m = ev.members;
+      const name = m ? m.name + ' ' + m.surname : '—';
+      const email = m ? m.email : '—';
+      const isRedeem = ev.event_type === 'redeem';
+      const date = new Date(ev.created_at);
+      const timeStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      return '<tr><td>' + name + '</td><td style="color:var(--gray)">' + email + '</td><td><span class="badge ' + (isRedeem ? 'badge-green' : 'badge-gray') + '">' + (isRedeem ? 'Redeemed' : '+1 stamp') + '</span></td><td style="color:var(--gray);white-space:nowrap">' + timeStr + '</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+
+// ── MEMBERS ──
+async function loadMembers() {
+  const { data } = await db.from('members').select('*').order('created_at', { ascending: false });
+  allMembers = data || [];
+  renderMembers(allMembers);
+}
+function renderMembers(members) {
+  const wrap = document.getElementById('members-table');
+  if (!members.length) { wrap.innerHTML = '<div class="loading">No members yet</div>'; return; }
+  wrap.innerHTML = '<table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Stamps</th><th>Total visits</th><th>Member since</th></tr></thead><tbody>' +
+    members.map(m => {
+      const stamps = m.stamps || 0;
+      const pips = Array.from({length: 10}, (_,i) => '<div class="stamp-pip' + (i < stamps ? ' on' : '') + '"></div>').join('');
+      const since = new Date(m.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return '<tr style="cursor:pointer" onclick="showMemberDetail(\'' + m.id + '\')">' +
+        '<td><strong>' + m.name + ' ' + m.surname + '</strong></td>' +
+        '<td style="color:var(--gray)">' + m.email + '</td>' +
+        '<td style="color:var(--gray)">' + (m.phone || '—') + '</td>' +
+        '<td><div class="stamp-bar">' + pips + '<span style="font-size:11px;color:var(--gray);margin-left:6px">' + stamps + '/10</span></div></td>' +
+        '<td>' + (m.total_stamps || stamps) + '</td>' +
+        '<td style="color:var(--gray);white-space:nowrap">' + since + '</td>' +
+        '</tr>';
+    }).join('') + '</tbody></table>';
+}
+function filterMembers() {
+  const q = document.getElementById('member-search').value.toLowerCase();
+  const filtered = allMembers.filter(m =>
+    (m.name + ' ' + m.surname).toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+  );
+  renderMembers(filtered);
+}
+
+// ── MEMBER DETAIL ──
+async function showMemberDetail(id) {
+  document.getElementById('members-list-view').style.display = 'none';
+  document.getElementById('member-detail').classList.add('visible');
+
+  const member = allMembers.find(m => m.id === id);
+  if (!member) return;
+
+  document.getElementById('detail-avatar').textContent = (member.name[0] + member.surname[0]).toUpperCase();
+  document.getElementById('detail-name').textContent = member.name + ' ' + member.surname;
+  document.getElementById('detail-email').textContent = member.email;
+  document.getElementById('detail-since').textContent = 'Member since ' + new Date(member.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  document.getElementById('detail-stamps').textContent = member.stamps || 0;
+  document.getElementById('detail-total').textContent = member.total_stamps || member.stamps || 0;
+
+  const { count } = await db.from('redemptions').select('*', { count: 'exact', head: true }).eq('member_id', id);
+  document.getElementById('detail-rewards').textContent = count || 0;
+
+  const { data: events } = await db.from('stamp_events').select('*').eq('member_id', id).order('created_at', { ascending: false });
+  const wrap = document.getElementById('detail-history');
+  if (!events || !events.length) { wrap.innerHTML = '<div class="loading">No history yet</div>'; return; }
+  wrap.innerHTML = '<table><thead><tr><th>Event</th><th>Stamps after</th><th>Date</th></tr></thead><tbody>' +
+    events.map(ev => {
+      const isRedeem = ev.event_type === 'redeem';
+      const date = new Date(ev.created_at);
+      const timeStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      return '<tr><td><span class="badge ' + (isRedeem ? 'badge-green' : 'badge-gray') + '">' + (isRedeem ? 'Redeemed' : '+1 stamp') + '</span></td><td>' + ev.stamps_after + '/10</td><td style="color:var(--gray)">' + timeStr + '</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+function backToMembers() {
+  document.getElementById('members-list-view').style.display = 'block';
+  document.getElementById('member-detail').classList.remove('visible');
+}
+
+// ── ACTIVITY ──
+async function loadActivity() {
+  const { data } = await db.from('stamp_events').select('*, members(name, surname, email)').order('created_at', { ascending: false }).limit(100);
+  const wrap = document.getElementById('activity-table');
+  if (!data || !data.length) { wrap.innerHTML = '<div class="loading">No activity yet</div>'; return; }
+  wrap.innerHTML = '<table><thead><tr><th>Member</th><th>Email</th><th>Event</th><th>Stamps</th><th>Date & Time</th></tr></thead><tbody>' +
+    data.map(ev => {
+      const m = ev.members;
+      const name = m ? m.name + ' ' + m.surname : '—';
+      const email = m ? m.email : '—';
+      const isRedeem = ev.event_type === 'redeem';
+      const date = new Date(ev.created_at);
+      const timeStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      return '<tr><td><strong>' + name + '</strong></td><td style="color:var(--gray)">' + email + '</td><td><span class="badge ' + (isRedeem ? 'badge-green' : 'badge-gray') + '">' + (isRedeem ? 'Redeemed' : '+1 stamp') + '</span></td><td>' + ev.stamps_after + '/10</td><td style="color:var(--gray);white-space:nowrap">' + timeStr + '</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+</script>
+</body>
+</html>
