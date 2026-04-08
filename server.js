@@ -88,7 +88,6 @@ app.get('/health', (_, res) => res.json({ status: 'ok', cert: !!APPLE_CERT }));
 
 app.get('/wallet/apple/:memberId', async (req, res) => {
   try {
-    console.log('Request for:', req.params.memberId);
     if (!APPLE_CERT || !APPLE_KEY || !APPLE_WWDR) return res.status(500).json({ error: 'Certs missing' });
 
     const { data: member, error } = await db.from('members').select('*').eq('id', req.params.memberId).single();
@@ -119,9 +118,9 @@ app.get('/wallet/apple/:memberId', async (req, res) => {
       labelColor: 'rgb(160, 160, 160)',
       storeCard: {
         headerFields: [{ key: 'stamps', label: 'STAMPS', value: Math.min(stamps,10) + '/10', textAlignment: 'PKTextAlignmentRight' }],
-        primaryFields: [{ key: 'member', label: 'MEMBER', value: memberName }],
-        secondaryFields: [{ key: 'stamps_row', label: stamps >= 10 ? '★ FREE COFFEE READY' : 'YOUR STAMPS', value: stampRow(stamps) }],
-        auxiliaryFields: [{ key: 'since', label: 'MEMBER SINCE', value: new Date(member.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) }],
+        primaryFields: [{ key: 'stamps_row', label: stamps >= 10 ? '★ FREE COFFEE' : 'YOUR STAMPS', value: stampRow(stamps) }],
+        secondaryFields: [{ key: 'member', label: 'MEMBER', value: memberName }],
+        auxiliaryFields: [{ key: 'since', label: 'SINCE', value: new Date(member.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) }],
         backFields: [
           { key: 'howto', label: 'HOW IT WORKS', value: 'Every coffee counts. Collect 10 stamps and your next one is on us.' },
           { key: 'website', label: 'WEBSITE', value: 'utopico.coffee' },
