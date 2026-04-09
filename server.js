@@ -86,7 +86,10 @@ function buildPass(member) {
       ]
     },
     barcode: { message: 'https://energetic-motivation-production.up.railway.app/barista?scan='+member.id, format: 'PKBarcodeFormatQR', messageEncoding: 'iso-8859-1', altText: 'UTOPICO Loyalty' },
-    locations: [{ longitude: -3.7038, latitude: 40.4168, relevantText: "You're near UTOPICO! Show your loyalty card." }],
+    locations: [
+  { longitude: -3.679792, latitude: 40.4327969, relevantText: "You're near UTOPICO! Come in for a coffee ☕" },
+  { longitude: -3.6778841, latitude: 40.4286715, relevantText: "You're near UTOPICO! Come in for a coffee ☕" }
+],
     maxDistance: 500,
     authenticationToken: member.apple_pass_token || crypto.randomBytes(16).toString('hex'),
     webServiceURL: 'https://energetic-motivation-production.up.railway.app/apple-wallet'
