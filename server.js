@@ -201,5 +201,125 @@ app.post('/webhook/stamp-updated', async (req, res) => {
 
 app.get('/barista', (req, res) => res.redirect('https://utopicocafe.github.io/utopico-backend/barista.html?scan='+req.query.scan));
 
-const PORT = process.env.PORT || 3000;
+// ─── RESERVATIONS ────────────────────────────────────────────
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
+const STAFF_EMAIL = process.env.STAFF_EMAIL;
+
+function formatDateES(dateStr) {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+app.post('/reservations', async (req, res) => {
+  try {
+    const { name, email, phone, date, time, party_size, service, notes } = req.body;
+    if (!name || !email || !date || !time || !party_size || !service)
+      return res.status(400).json({ error: 'Missing required fields' });
+
+    const { data, error } = await db.from('reservations')
+      .insert({ name, email, phone, date, time, party_size, service, notes, status: 'pending' })
+      .select().single();
+    if (error) throw error;
+
+    const serviceLabel = service === 'lunch' ? 'Mediodía' : 'Cena';
+
+    await Promise.all([
+      resend.emails.send({
+        from: 'Matbakh by Utópico <reservas@utopico.coffee>',
+        to: email,
+        subject: `Reserva recibida — ${formatDateES(date)}`,
+        html: `<div style="font-family:Helvetica Neue,Arial,sans-serif;background:#0a0a0a;color:#f0ece4;padding:48px 24px;max-width:520px;margin:0 auto">
+          <div style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#888;margin-bottom:40px"><span style="color:#f0ece4">MATBAKH</span> · Utópico</div>
+          <h1 style="font-size:28px;font-weight:300;margin-bottom:8px">Reserva recibida</h1>
+          <p style="font-size:13px;color:#888;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:32px">Pendiente de confirmación</p>
+          <table style="width:100%;border-top:1px solid #222;border-bottom:1px solid #222;padding:20px 0;margin-bottom:24px">
+            <tr><td style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.15em;padding:6px 0">Nombre</td><td style="text-align:right;font-size:14px">${name}</td></tr>
+            <tr><td style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.15em;padding:6px 0">Fecha</td><td style="text-align:right;font-size:14px">${formatDateES(date)}</td></tr>
+            <tr><td style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.15em;padding:6px 0">Hora</td><td style="text-align:right;font-size:14px">${time.slice(0,5)}</td></tr>
+            <tr><td style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.15em;padding:6px 0">Servicio</td><td style="text-align:right;font-size:14px">${serviceLabel}</td></tr>
+            <tr><td style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.15em;padding:6px 0">Personas</td><td style="text-align:right;font-size:14px">${party_size}</td></tr>
+          </table>
+          <p style="font-size:13px;color:#666;line-height:1.6;border-left:2px solid #333;padding-left:16px;margin-bottom:40px">Confirmaremos tu mesa el mismo día. Cambios: <a href="mailto:reservas@utopico.coffee" style="color:#c9a96e">reservas@utopico.coffee</a></p>
+          <p style="font-size:12px;color:#555;text-align:center;border-top:1px solid #1a1a1a;padding-top:24px">Don Ramón de la Cruz 48 · Madrid</p>
+        </div>`
+      }),
+      resend.emails.send({
+        from: 'Matbakh <reservas@utopico.coffee>',
+        to: STAFF_EMAIL,
+        subject: `🆕 Reserva — ${name} · ${formatDateES(date)} ${time.slice(0,5)}`,
+        html: `<div style="font-family:monospace;padding:24px;background:#f9f9f9;max-width:480px">
+          <h2 style="font-size:16px;margin:0 0 16px">Nueva reserva en Matbakh</h2>
+          <table style="font-size:13px;width:100%">
+            <tr><td style="color:#999;padding:5px 0">Nombre</td><td><strong>${name}</strong></td></tr>
+            <tr><td style="color:#999;padding:5px 0">Email</td><td>${email}</td></tr>
+            <tr><td style="color:#999;padding:5px 0">Teléfono</td><td>${phone || '—'}</td></tr>
+            <tr><td style="color:#999;padding:5px 0">Fecha</td><td>${formatDateES(date)}</td></tr>
+            <tr><td style="color:#999;padding:5px 0">Hora</td><td>${time.slice(0,5)}</td></tr>
+            <tr><td style="color:#999;padding:5px 0">Servicio</td><td>${serviceLabel}</td></tr>
+            <tr><td style="color:#999;padding:5px 0">Personas</td><td>${party_size}</td></tr>
+            ${notes ? `<tr><td style="color:#999;padding:5px 0">Notas</td><td>${notes}</td></tr>` : ''}
+          </table>
+        </div>`
+      })
+    ]);
+
+    res.status(201).json({ success: true, reservation: data });
+  } catch (err) {
+    console.error('POST /reservations error:', err);
+    res.status(500).json({ error: 'Could not create reservation' });
+  }
+});
+
+app.get('/reservations', async (req, res) => {
+  try {
+    const { date, status, service } = req.query;
+    let query = db.from('reservations').select('*').order('date').order('time');
+    if (date) query = query.eq('date', date);
+    if (status) query = query.eq('status', status);
+    if (service) query = query.eq('service', service);
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json({ reservations: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not fetch reservations' });
+  }
+});
+
+app.patch('/reservations/:id/confirm', async (req, res) => {
+  try {
+    const { data, error } = await db.from('reservations').update({ status: 'confirmed' }).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    const serviceLabel = data.service === 'lunch' ? 'Mediodía' : 'Cena';
+    await resend.emails.send({
+      from: 'Matbakh by Utópico <reservas@utopico.coffee>',
+      to: data.email,
+      subject: `✓ Reserva confirmada — ${formatDateES(data.date)} ${data.time.slice(0,5)}`,
+      html: `<div style="font-family:Helvetica Neue,Arial,sans-serif;background:#0a0a0a;color:#f0ece4;padding:48px 24px;max-width:520px;margin:0 auto">
+        <div style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#888;margin-bottom:40px"><span style="color:#f0ece4">MATBAKH</span> · Utópico</div>
+        <h1 style="font-size:28px;font-weight:300;margin-bottom:8px">Te esperamos,<br>${data.name.split(' ')[0]}.</h1>
+        <p style="font-size:13px;color:#c9a96e;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:32px">✓ Reserva confirmada</p>
+        <table style="width:100%;border-top:1px solid #222;padding:20px 0;margin-bottom:32px">
+          <tr><td style="font-size:11px;color:#666;text-transform:uppercase;padding:6px 0">Fecha</td><td style="text-align:right;font-size:14px">${formatDateES(data.date)}</td></tr>
+          <tr><td style="font-size:11px;color:#666;text-transform:uppercase;padding:6px 0">Hora</td><td style="text-align:right;font-size:14px">${data.time.slice(0,5)}</td></tr>
+          <tr><td style="font-size:11px;color:#666;text-transform:uppercase;padding:6px 0">Servicio</td><td style="text-align:right;font-size:14px">${serviceLabel}</td></tr>
+          <tr><td style="font-size:11px;color:#666;text-transform:uppercase;padding:6px 0">Personas</td><td style="text-align:right;font-size:14px">${data.party_size}</td></tr>
+        </table>
+        <p style="font-size:12px;color:#555;text-align:center;border-top:1px solid #1a1a1a;padding-top:24px">Don Ramón de la Cruz 48 · Madrid</p>
+      </div>`
+    });
+    res.json({ success: true, reservation: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not confirm reservation' });
+  }
+});
+
+app.patch('/reservations/:id/cancel', async (req, res) => {
+  try {
+    const { data, error } = await db.from('reservations').update({ status: 'cancelled' }).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json({ success: true, reservation: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not cancel reservation' });
+  }
+});const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('UTOPICO backend running on port '+PORT));
