@@ -12,6 +12,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
+app.get('/booking', (req, res) => res.sendFile(__dirname + '/booking-widget.html'));
+app.get('/staff', (req, res) => res.sendFile(__dirname + '/staff-panel.html'));
 const SUPABASE_URL         = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const APPLE_TEAM_ID        = process.env.APPLE_TEAM_ID;
