@@ -291,9 +291,16 @@
       <div class="field" id="field-party">
         <label class="field-label" for="party_size">Número de personas</label>
         <select id="party_size">
-          ${Array.from({length: 10}, (_, i) => i + 1).map(n => 
-            `<option value="${n}" ${n === 2 ? 'selected' : ''}>${n} ${n === 1 ? 'persona' : 'personas'}</option>`
-          ).join('')}
+          <option value="1">1 persona</option>
+          <option value="2" selected>2 personas</option>
+          <option value="3">3 personas</option>
+          <option value="4">4 personas</option>
+          <option value="5">5 personas</option>
+          <option value="6">6 personas</option>
+          <option value="7">7 personas</option>
+          <option value="8">8 personas</option>
+          <option value="9">9 personas</option>
+          <option value="10">10 personas</option>
         </select>
       </div>
 
