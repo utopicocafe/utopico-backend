@@ -278,8 +278,7 @@
       <div class="field" id="field-service">
         <label class="field-label">Servicio</label>
         <div class="service-toggle">
-          <button type="button" class="service-btn active" data-value="lunch" onclick="selectService(this)">Mediodía</button>
-          <button type="button" class="service-btn" data-value="dinner" onclick="selectService(this)">Cena</button>
+          <button type="button" class="service-btn active" data-value="dinner" onclick="selectService(this)">Cena</button>
         </div>
       </div>
 
@@ -292,10 +291,9 @@
       <div class="field" id="field-party">
         <label class="field-label" for="party_size">Número de personas</label>
         <select id="party_size">
-          ${Array.from({length: 12}, (_, i) => i + 1).map(n => 
+          ${Array.from({length: 10}, (_, i) => i + 1).map(n => 
             `<option value="${n}" ${n === 2 ? 'selected' : ''}>${n} ${n === 1 ? 'persona' : 'personas'}</option>`
           ).join('')}
-          <option value="13">13+ personas</option>
         </select>
       </div>
 
@@ -330,7 +328,7 @@
 <script>
   const API_BASE = 'https://energetic-motivation-production.up.railway.app';
 
-  let selectedService = 'lunch';
+  let selectedService = 'dinner';
 
   // ─── Init ────────────────────────────────────────────────
   const tomorrow = new Date();
@@ -338,7 +336,7 @@
   document.getElementById('date').min = tomorrow.toISOString().split('T')[0];
   document.getElementById('date').value = tomorrow.toISOString().split('T')[0];
 
-  populateTimes('lunch');
+  populateTimes('dinner');
 
   document.getElementById('date').addEventListener('change', () => {
     populateTimes(selectedService);
@@ -357,9 +355,7 @@
     const select = document.getElementById('time');
     select.innerHTML = '';
 
-    const slots = service === 'lunch'
-      ? generateSlots('13:00', '16:00')
-      : generateSlots('20:00', '23:00');
+    const slots = generateSlots('17:00', '21:30');
 
     slots.forEach(t => {
       const opt = document.createElement('option');
