@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matbakh — Reservations</title>
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --border: #242424;
+    --text: #f0ece4;
+    --muted: #666;
+    --gold: #c9a96e;
+    --green: #4caf7d;
+    --red: #e05a5a;
+    --pending: #c9a96e;
+    --font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+  }
+
+  /* ─── Header ─── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-left { display: flex; align-items: baseline; gap: 12px; }
+
+  .logo {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .header-date {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* ─── Filters ─── */
+  .filters {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .filter-group { display: flex; align-items: center; gap: 8px; }
+
+  label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  input[type="date"],
+  select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 7px 12px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  input[type="date"]:focus,
+  select:focus { border-color: var(--gold); }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.6);
+    cursor: pointer;
+  }
+
+  .btn-load {
+    background: var(--gold);
+    color: #0e0e0e;
+    border: none;
+    font-family: var(--font);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-load:hover { opacity: 0.85; }
+
+  /* ─── Stats bar ─── */
+  .stats {
+    display: flex;
+    gap: 0;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat {
+    padding: 14px 24px 14px 0;
+    margin-right: 24px;
+    border-right: 1px solid var(--border);
+  }
+
+  .stat:last-child { border-right: none; }
+
+  .stat-value {
+    font-size: 22px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* ─── Table ─── */
+  .table-wrap {
+    padding: 24px 32px;
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 0 12px 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #1a1a1a;
+    transition: background 0.1s;
+  }
+
+  tbody tr:hover { background: #141414; }
+
+  tbody td {
+    padding: 14px 12px 14px 0;
+    vertical-align: middle;
+  }
+
+  .td-name { font-weight: 500; }
+
+  .td-email { color: var(--muted); font-size: 12px; }
+
+  .badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 1px solid;
+  }
+
+  .badge-pending { color: var(--pending); border-color: rgba(201,169,110,0.3); }
+  .badge-confirmed { color: var(--green); border-color: rgba(76,175,125,0.3); }
+  .badge-cancelled { color: var(--red); border-color: rgba(224,90,90,0.3); }
+
+  .service-tag {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface);
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+  }
+
+  .actions { display: flex; gap: 6px; }
+
+  .btn-action {
+    font-family: var(--font);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border: 1px solid;
+    background: transparent;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-confirm {
+    color: var(--green);
+    border-color: rgba(76,175,125,0.4);
+  }
+
+  .btn-confirm:hover {
+    background: var(--green);
+    color: #0e0e0e;
+    border-color: var(--green);
+  }
+
+  .btn-cancel {
+    color: var(--red);
+    border-color: rgba(224,90,90,0.3);
+  }
+
+  .btn-cancel:hover {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+  }
+
+  .btn-disabled {
+    opacity: 0.25;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  /* ─── Empty/Loading states ─── */
+  .state-msg {
+    text-align: center;
+    padding: 64px 32px;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ─── Toast ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+    padding: 12px 20px;
+    letter-spacing: 0.05em;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── Notes tooltip ─── */
+  .notes-icon {
+    cursor: help;
+    color: var(--muted);
+    font-size: 11px;
+    border-bottom: 1px dotted var(--border);
+    position: relative;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <span class="logo">Matbakh</span>
+    <span class="logo-sub">· Reservations</span>
+  </div>
+  <span class="header-date" id="today-label"></span>
+</header>
+
+<div class="filters">
+  <div class="filter-group">
+    <label for="filter-date">Date</label>
+    <input type="date" id="filter-date">
+  </div>
+  <div class="filter-group">
+    <label for="filter-status">Status</label>
+    <select id="filter-status">
+      <option value="">All</option>
+      <option value="pending">Pending</option>
+      <option value="confirmed">Confirmed</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="filter-service">Service</label>
+    <select id="filter-service">
+      <option value="">All</option>
+      <option value="lunch">Lunch</option>
+      <option value="dinner">Dinner</option>
+    </select>
+  </div>
+  <button class="btn-load" onclick="loadReservations()">Load</button>
+</div>
+
+<div class="stats" id="stats-bar" style="display:none;">
+  <div class="stat">
+    <div class="stat-value" id="stat-total">0</div>
+    <div class="stat-label">Total</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="stat-covers">0</div>
+    <div class="stat-label">Covers</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="stat-pending">0</div>
+    <div class="stat-label">Pending</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="stat-confirmed">0</div>
+    <div class="stat-label">Confirmed</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <div id="table-container">
+    <div class="state-msg">Select a date and press Load</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─── CONFIG ─────────────────────────────────────────────
+  const API_BASE = 'https://energetic-motivation-production.up.railway.app';
+
+  // ─── Init ────────────────────────────────────────────────
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('filter-date').value = today;
+  document.getElementById('today-label').textContent = 
+    new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Auto-load today on init
+  loadReservations();
+
+  // ─── Load Reservations ───────────────────────────────────
+  async function loadReservations() {
+    const date = document.getElementById('filter-date').value;
+    const status = document.getElementById('filter-status').value;
+    const service = document.getElementById('filter-service').value;
+
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    if (status) params.set('status', status);
+    if (service) params.set('service', service);
+
+    setLoading();
+
+    try {
+      const res = await fetch(`${API_BASE}/reservations?${params}`);
+      const data = await res.json();
+      renderTable(data.reservations || []);
+    } catch (err) {
+      document.getElementById('table-container').innerHTML =
+        '<div class="state-msg">Error connecting to server</div>';
+    }
+  }
+
+  // ─── Render Table ────────────────────────────────────────
+  function renderTable(reservations) {
+    updateStats(reservations);
+
+    if (reservations.length === 0) {
+      document.getElementById('table-container').innerHTML =
+        '<div class="state-msg">No reservations found</div>';
+      return;
+    }
+
+    const rows = reservations.map(r => `
+      <tr id="row-${r.id}">
+        <td class="td-name">${esc(r.name)}</td>
+        <td class="td-email">${esc(r.email)}</td>
+        <td>${r.phone ? esc(r.phone) : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${formatDate(r.date)}</td>
+        <td>${r.time.slice(0,5)}</td>
+        <td><span class="service-tag">${r.service === 'lunch' ? 'Lunch' : 'Dinner'}</span></td>
+        <td>${r.party_size}</td>
+        <td>${r.notes ? `<span class="notes-icon" title="${esc(r.notes)}">Notes ↗</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+        <td><span class="badge badge-${r.status}">${r.status}</span></td>
+        <td>
+          <div class="actions">
+            <button class="btn-action btn-confirm ${r.status !== 'pending' ? 'btn-disabled' : ''}"
+              onclick="confirm_('${r.id}')">Confirm</button>
+            <button class="btn-action btn-cancel ${r.status === 'cancelled' ? 'btn-disabled' : ''}"
+              onclick="cancel('${r.id}')">Cancel</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    document.getElementById('table-container').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Email</th><th>Phone</th><th>Date</th>
+            <th>Time</th><th>Service</th><th>PAX</th><th>Notes</th>
+            <th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  // ─── Actions ─────────────────────────────────────────────
+  async function confirm_(id) {
+    try {
+      const res = await fetch(`${API_BASE}/reservations/${id}/confirm`, { method: 'PATCH' });
+      const data = await res.json();
+      if (data.success) {
+        updateRowStatus(id, 'confirmed');
+        toast('Reservation confirmed — email sent to client');
+      }
+    } catch { toast('Error confirming reservation', true); }
+  }
+
+  async function cancel(id) {
+    if (!window.confirm('Cancel this reservation?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/reservations/${id}/cancel`, { method: 'PATCH' });
+      const data = await res.json();
+      if (data.success) {
+        updateRowStatus(id, 'cancelled');
+        toast('Reservation cancelled');
+      }
+    } catch { toast('Error cancelling reservation', true); }
+  }
+
+  // ─── UI Helpers ──────────────────────────────────────────
+  function updateRowStatus(id, status) {
+    const row = document.getElementById(`row-${id}`);
+    if (!row) return;
+    row.querySelector('.badge').className = `badge badge-${status}`;
+    row.querySelector('.badge').textContent = status;
+    row.querySelectorAll('.btn-action').forEach(b => b.classList.add('btn-disabled'));
+    loadReservations(); // refresh stats
+  }
+
+  function updateStats(reservations) {
+    const statsBar = document.getElementById('stats-bar');
+    statsBar.style.display = 'flex';
+    document.getElementById('stat-total').textContent = reservations.length;
+    document.getElementById('stat-covers').textContent = 
+      reservations.filter(r => r.status !== 'cancelled').reduce((s, r) => s + r.party_size, 0);
+    document.getElementById('stat-pending').textContent = 
+      reservations.filter(r => r.status === 'pending').length;
+    document.getElementById('stat-confirmed').textContent = 
+      reservations.filter(r => r.status === 'confirmed').length;
+  }
+
+  function setLoading() {
+    document.getElementById('table-container').innerHTML =
+      '<div class="state-msg">Loading...</div>';
+    document.getElementById('stats-bar').style.display = 'none';
+  }
+
+  function formatDate(d) {
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', 
+      { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function toast(msg, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.borderColor = isError ? 'var(--red)' : 'var(--green)';
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+</script>
+</body>
+</html>
