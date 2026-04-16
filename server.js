@@ -227,7 +227,7 @@ app.post('/reservations', async (req, res) => {
 
     await Promise.all([
       resend.emails.send({
-        from: 'Matbakh by Utópico <reservas@utopico.coffee>',
+        from: 'Matbakh by Utópico <reservas@send.utopico.coffee>',
         to: email,
         subject: `Reserva recibida — ${formatDateES(date)}`,
         html: `<div style="font-family:Helvetica Neue,Arial,sans-serif;background:#0a0a0a;color:#f0ece4;padding:48px 24px;max-width:520px;margin:0 auto">
@@ -241,12 +241,12 @@ app.post('/reservations', async (req, res) => {
             <tr><td style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.15em;padding:6px 0">Servicio</td><td style="text-align:right;font-size:14px">${serviceLabel}</td></tr>
             <tr><td style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.15em;padding:6px 0">Personas</td><td style="text-align:right;font-size:14px">${party_size}</td></tr>
           </table>
-          <p style="font-size:13px;color:#666;line-height:1.6;border-left:2px solid #333;padding-left:16px;margin-bottom:40px">Confirmaremos tu mesa el mismo día. Cambios: <a href="mailto:reservas@utopico.coffee" style="color:#c9a96e">reservas@utopico.coffee</a></p>
+          <p style="font-size:13px;color:#666;line-height:1.6;border-left:2px solid #333;padding-left:16px;margin-bottom:40px">Confirmaremos tu mesa el mismo día. Cambios: <a href="mailto:reservas@send.utopico.coffee" style="color:#c9a96e">reservas@send.utopico.coffee</a></p>
           <p style="font-size:12px;color:#555;text-align:center;border-top:1px solid #1a1a1a;padding-top:24px">Don Ramón de la Cruz 48 · Madrid</p>
         </div>`
       }),
       resend.emails.send({
-        from: 'Matbakh <reservas@utopico.coffee>',
+        from: 'Matbakh <reservas@send.utopico.coffee>',
         to: STAFF_EMAIL,
         subject: `🆕 Reserva — ${name} · ${formatDateES(date)} ${time.slice(0,5)}`,
         html: `<div style="font-family:monospace;padding:24px;background:#f9f9f9;max-width:480px">
@@ -293,7 +293,7 @@ app.patch('/reservations/:id/confirm', async (req, res) => {
     if (error) throw error;
     const serviceLabel = data.service === 'lunch' ? 'Mediodía' : 'Cena';
     await resend.emails.send({
-      from: 'Matbakh by Utópico <reservas@utopico.coffee>',
+      from: 'Matbakh by Utópico <reservas@send.utopico.coffee>',
       to: data.email,
       subject: `✓ Reserva confirmada — ${formatDateES(data.date)} ${data.time.slice(0,5)}`,
       html: `<div style="font-family:Helvetica Neue,Arial,sans-serif;background:#0a0a0a;color:#f0ece4;padding:48px 24px;max-width:520px;margin:0 auto">
