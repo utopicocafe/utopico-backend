@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="UTOPICO Staff">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Barista">
 <meta name="theme-color" content="#1C1B1B">
+<link rel="manifest" href="/utopico-backend/manifest.json">
+<link rel="apple-touch-icon" href="/utopico-backend/icon-192.png">
 <title>UTOPICO — Staff</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -56,8 +58,8 @@ html, body { height: 100%; font-family: 'Helvetica Neue', Helvetica, Arial, sans
 
 .scan-body { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; }
 .scan-hint { font-size: 10px; color: var(--gray2); text-align: center; margin-bottom: .75rem; letter-spacing: 1.5px; text-transform: uppercase; }
-#reader { border: 0.5px solid var(--border); overflow: hidden; background: var(--bg2); }
-#reader video { display: block !important; width: 100% !important; }
+#reader { border: 0.5px solid var(--border); overflow: hidden; background: var(--bg2); aspect-ratio: 1 / 1; position: relative; }
+#reader video { display: block !important; width: 100% !important; height: 100% !important; object-fit: cover !important; }
 #reader img { display: none !important; }
 
 .or-row { display: flex; align-items: center; gap: 10px; margin: 1rem 0; }
@@ -239,15 +241,37 @@ function switchTab(tab, el) {
   if (tab === 'history') loadHistory();
 }
 function startScanner() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('Camera API unavailable. Use HTTPS or update iOS.');
+    return;
+  }
   scanner = new Html5Qrcode('reader');
-  scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 220, height: 220 } },
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 220, height: 220 } },
     (text) => {
       try {
         const id = new URL(text).searchParams.get('scan');
         if (id) { scanner.pause(); loadById(id); }
       } catch {}
-    }, () => {}
-  ).then(() => scannerActive = true).catch(() => showToast('Camera unavailable — use email search'));
+    },
+    () => {}
+  ).then(() => {
+    scannerActive = true;
+    // Forzar playsinline en iOS PWA — sin esto el video se queda en negro
+    const video = document.querySelector('#reader video');
+    if (video) {
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('webkit-playsinline', 'true');
+      video.setAttribute('autoplay', 'true');
+      video.muted = true;
+      video.play().catch(() => {});
+    }
+  }).catch((err) => {
+    const msg = err && err.message ? err.message : 'check permissions';
+    showToast('Camera unavailable: ' + msg);
+    console.error('Scanner start failed:', err);
+  });
 }
 async function loadById(id) {
   const { data, error } = await db.from('members').select('*').eq('id', id).single();
