@@ -1,0 +1,14 @@
+{
+  "name": "Utópico Barista",
+  "short_name": "Barista",
+  "start_url": "/utopico-backend/barista.html",
+  "scope": "/utopico-backend/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1C1B1B",
+  "theme_color": "#1C1B1B",
+  "icons": [
+    { "src": "/utopico-backend/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/utopico-backend/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
