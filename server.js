@@ -28,6 +28,7 @@ const WALLET_PUSH_KEY  = process.env.WALLET_PUSH_KEY_B64  ? Buffer.from(process.
 console.log('CERT starts:', APPLE_CERT ? APPLE_CERT.substring(0,27) : 'null');
 console.log('Push cert:', !!WALLET_PUSH_CERT);
 
+global.WebSocket = global.WebSocket || require('ws');
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 const IMAGES = {
